@@ -19,7 +19,7 @@ Plan de implementación incremental para la Plataforma de Subastas. Se construye
     - Crear excepciones de dominio: `DomainException`, `NotFoundException`, `ConflictException`, `ForbiddenException`, `ValidationException`
     - _Requirements: 1.1, 2.1, 4.6, 5.1_
 
-  - [ ] 1.3 Configurar EF Core, DbContext y Fluent API
+  - [x] 1.3 Configurar EF Core, DbContext y Fluent API
     - Crear `AuctionDbContext` con DbSets para todas las entidades
     - Crear configuraciones Fluent API (`IEntityTypeConfiguration<T>`) para cada entidad con tipos de datos, índices y restricciones según el diseño
     - Configurar `rowversion` en Subastas para control de concurrencia optimista
