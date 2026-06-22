@@ -6,7 +6,7 @@ Plan de implementación incremental para la Plataforma de Subastas. Se construye
 
 ## Tasks
 
-- [ ] 1. Configuración del proyecto y estructura base
+- [x] 1. Configuración del proyecto y estructura base
   - [x] 1.1 Crear la solución .NET y proyectos por capa
     - Crear solución `AuctionPlatform.sln` con los proyectos: `AuctionPlatform.Api`, `AuctionPlatform.Application`, `AuctionPlatform.Domain`, `AuctionPlatform.Infrastructure`, `AuctionPlatform.Workers`
     - Agregar proyecto de tests `AuctionPlatform.Tests` con xUnit y FsCheck
@@ -27,12 +27,12 @@ Plan de implementación incremental para la Plataforma de Subastas. Se construye
     - Configurar índice único en Monederos (id_usuario) y Usuarios (email)
     - _Requirements: 2.1, 4.6, 4.7, 5.1_
 
-  - [ ] 1.4 Crear la migración inicial y seed de datos
+  - [x] 1.4 Crear la migración inicial y seed de datos
     - Generar la primera migración de EF Core con el esquema completo
     - Crear seed para roles (`Administrador`, `Comprador`) y usuario administrador inicial
     - _Requirements: 1.2_
 
-  - [ ] 1.5 Configurar middleware global, estructura de respuesta API y Swagger
+  - [x] 1.5 Configurar middleware global, estructura de respuesta API y Swagger
     - Implementar `ApiResponse<T>` record con campos `data`, `error`, `meta`
     - Implementar `ExceptionHandlingMiddleware` que mapea excepciones de dominio a códigos HTTP
     - Configurar serializador JSON para fechas ISO 8601 UTC (`JsonSerializerOptions`)

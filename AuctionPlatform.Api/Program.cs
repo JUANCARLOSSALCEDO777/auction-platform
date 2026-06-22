@@ -1,42 +1,97 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using AuctionPlatform.Api.Middleware;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// --- Configuración de controladores con opciones de serialización JSON ---
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // camelCase para nombres de propiedades en las respuestas JSON
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+
+        // Serializar enums como texto legible en lugar de valores numéricos
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+
+        // No omitir campos null: data, error, meta siempre deben estar presentes
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
+    });
+
+// --- Configuración de Swagger/OpenAPI ---
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Plataforma de Subastas API",
+        Version = "v1",
+        Description = "API REST para la plataforma de subastas en tiempo real."
+    });
+});
+
+// --- Configuración de Rate Limiting (100 req/min por usuario JWT o IP) ---
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("PerUser", httpContext =>
+    {
+        // Identificar al usuario por claim 'sub' del JWT o por IP si es anónimo
+        var userId = httpContext.User?.FindFirst("sub")?.Value
+                     ?? httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                     ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                     ?? "anonymous";
+
+        return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100,            // 100 solicitudes máximo
+            Window = TimeSpan.FromMinutes(1), // ventana de 1 minuto
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0                // sin cola, rechazo inmediato al exceder
+        });
+    });
+
+    // Política global como fallback
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var userId = httpContext.User?.FindFirst("sub")?.Value
+                     ?? httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                     ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                     ?? "anonymous";
+
+        return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// --- Middleware de excepciones: debe ir primero para capturar todo ---
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+// --- Swagger solo disponible en entorno de desarrollo ---
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        // Configurar Swagger UI en /api/docs
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Plataforma de Subastas API v1");
+        options.RoutePrefix = "api/docs";
+    });
 }
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+// --- Rate limiting ---
+app.UseRateLimiter();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+// --- Mapear controladores bajo el prefijo /api/v1 ---
+app.MapControllers().RequireRateLimiting("PerUser");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
