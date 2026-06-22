@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Commit y push al completar tarea",
+  "description": "Al finalizar una tarea del spec, hace git add, commit con el nombre de la tarea y push a origin.",
+  "version": "1",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "La tarea acaba de completarse. Haz git add -A, luego git commit con un mensaje descriptivo basado en el nombre de la tarea completada (formato: \"feat: [nombre de la tarea]\"), y finalmente git push origin main. No pidas confirmación, hazlo directamente."
+  }
+}
