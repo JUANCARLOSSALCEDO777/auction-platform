@@ -81,6 +81,9 @@ builder.Services.AddAuthorization();
 // --- Registro del servicio JWT (scoped para inyección en servicios de autenticación) ---
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 
+// --- Registro del servicio de autenticación (registro, login, bloqueo) ---
+builder.Services.AddScoped<IAuthService, AuthService>();
+
 // --- Configuración de Rate Limiting (100 req/min por usuario JWT o IP) ---
 builder.Services.AddRateLimiter(options =>
 {
