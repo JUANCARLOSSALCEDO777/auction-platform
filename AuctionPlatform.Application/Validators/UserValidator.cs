@@ -104,6 +104,48 @@ public static class UserValidator
             AddError(errors, "password", "La contraseña debe contener al menos un dígito.");
     }
 
+    /// <summary>
+    /// Valida el nombre para actualización de perfil (2-100 caracteres).
+    /// Lanza <see cref="ValidationException"/> si no cumple las reglas.
+    /// </summary>
+    /// <param name="nombre">Nombre a validar.</param>
+    /// <exception cref="ValidationException">Si el nombre es inválido.</exception>
+    public static void ValidateProfileName(string nombre)
+    {
+        var errors = new Dictionary<string, List<string>>();
+        ValidateName(nombre, errors);
+
+        if (errors.Count > 0)
+        {
+            var formattedErrors = errors.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.ToArray());
+
+            throw new ValidationException(formattedErrors);
+        }
+    }
+
+    /// <summary>
+    /// Valida la contraseña para actualización de perfil (8-128 chars, mayúscula, minúscula, dígito).
+    /// Lanza <see cref="ValidationException"/> si no cumple las reglas.
+    /// </summary>
+    /// <param name="password">Contraseña a validar.</param>
+    /// <exception cref="ValidationException">Si la contraseña es inválida.</exception>
+    public static void ValidateProfilePassword(string password)
+    {
+        var errors = new Dictionary<string, List<string>>();
+        ValidatePassword(password, errors);
+
+        if (errors.Count > 0)
+        {
+            var formattedErrors = errors.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.ToArray());
+
+            throw new ValidationException(formattedErrors);
+        }
+    }
+
     private static void AddError(Dictionary<string, List<string>> errors, string field, string message)
     {
         if (!errors.ContainsKey(field))

@@ -4,8 +4,10 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using AuctionPlatform.Api.Middleware;
 using AuctionPlatform.Application.Services;
+using AuctionPlatform.Infrastructure.Data;
 using AuctionPlatform.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +40,14 @@ builder.Services.AddSwaggerGen(options =>
 
 // --- Caché distribuido en memoria (en desarrollo; en producción se reemplaza por Redis) ---
 builder.Services.AddDistributedMemoryCache();
+
+// --- Registro del DbContext con SQL Server ---
+// EF Core se conecta a SQL Server usando la cadena de conexión definida en appsettings.json.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection no está configurado en appsettings.json");
+
+builder.Services.AddDbContext<AuctionDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
 // --- Configuración de autenticación JWT ---
 // JWT Bearer es el esquema de autenticación estándar para APIs REST stateless.

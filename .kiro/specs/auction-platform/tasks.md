@@ -68,7 +68,7 @@ Plan de implementación incremental para la Plataforma de Subastas. Se construye
     - **Property 2: Todo usuario registrado recibe rol Comprador y monedero en cero**
     - **Validates: Requirements 1.1, 1.2, 5.1**
 
-  - [~] 2.5 Implementar login y gestión de perfil
+  - [x] 2.5 Implementar login y gestión de perfil
     - Implementar `IAuthService.LoginAsync`: verificar credenciales, retornar JWT; HTTP 401 con mensaje genérico si falla
     - Implementar `UserService.UpdateProfileAsync`: permitir cambio de nombre y contraseña, ignorar campo email
     - Crear `AuthController` (POST /register, POST /login) y `UsersController` (GET /me, PUT /me)

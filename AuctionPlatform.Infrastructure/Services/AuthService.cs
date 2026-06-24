@@ -11,7 +11,7 @@ namespace AuctionPlatform.Infrastructure.Services;
 
 /// <summary>
 /// Implementación del servicio de autenticación.
-/// Maneja el registro de usuarios con hash bcrypt, asignación de rol y creación de monedero.
+/// Maneja registro, login, perfil y actualización de datos del usuario.
 /// </summary>
 public class AuthService : IAuthService
 {
@@ -87,5 +87,92 @@ public class AuthService : IAuthService
         var expiresAt = DateTime.UtcNow.AddHours(24);
 
         return new AuthResult(token, expiresAt, "Comprador");
+    }
+
+    /// <inheritdoc />
+    public async Task<AuthResult> LoginAsync(LoginDto dto)
+    {
+        // 1. Buscar usuario por email (case-insensitive) incluyendo su rol
+        var usuario = await _context.Usuarios
+            .Include(u => u.Rol)
+            .FirstOrDefaultAsync(u => u.Email == dto.Email.ToLowerInvariant());
+
+        // 2. Si no existe o está bloqueado → mensaje genérico para no revelar información
+        if (usuario is null || !usuario.Activo)
+        {
+            throw new UnauthorizedException("Credenciales inválidas.");
+        }
+
+        // 3. Verificar contraseña con BCrypt
+        if (!BCrypt.Net.BCrypt.Verify(dto.Password, usuario.PasswordHash))
+        {
+            throw new UnauthorizedException("Credenciales inválidas.");
+        }
+
+        _logger.LogInformation("Login exitoso para usuario: {Email}", usuario.Email);
+
+        // 4. Generar token JWT con id y rol del usuario
+        var roleName = usuario.Rol.Nombre;
+        var token = _jwtTokenService.GenerateToken(usuario.Id, roleName);
+        var expiresAt = DateTime.UtcNow.AddHours(24);
+
+        return new AuthResult(token, expiresAt, roleName);
+    }
+
+    /// <inheritdoc />
+    public async Task<UserProfileDto> GetProfileAsync(int userId)
+    {
+        // Cargar usuario con su rol para obtener el nombre del rol
+        var usuario = await _context.Usuarios
+            .Include(u => u.Rol)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (usuario is null)
+        {
+            throw new NotFoundException($"Usuario con id {userId} no encontrado.");
+        }
+
+        return new UserProfileDto(
+            usuario.Id,
+            usuario.Nombre,
+            usuario.Email,
+            usuario.Rol.Nombre,
+            usuario.FechaCreacion
+        );
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateProfileAsync(int userId, UpdateProfileDto dto)
+    {
+        // 1. Cargar usuario existente
+        var usuario = await _context.Usuarios
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (usuario is null)
+        {
+            throw new NotFoundException($"Usuario con id {userId} no encontrado.");
+        }
+
+        // 2. Validar y actualizar nombre si se proporcionó
+        if (!string.IsNullOrWhiteSpace(dto.Nombre))
+        {
+            UserValidator.ValidateProfileName(dto.Nombre);
+            usuario.Nombre = dto.Nombre.Trim();
+        }
+
+        // 3. Validar y actualizar contraseña si se proporcionó
+        if (!string.IsNullOrEmpty(dto.Password))
+        {
+            UserValidator.ValidateProfilePassword(dto.Password);
+            // Re-hashear con bcrypt cost 12
+            usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, workFactor: 12);
+        }
+
+        // 4. IGNORAR dto.Email completamente — el correo electrónico no es modificable
+
+        // 5. Persistir cambios
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Perfil actualizado para usuario: {UserId}", userId);
     }
 }

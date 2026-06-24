@@ -53,6 +53,10 @@ public class ExceptionHandlingMiddleware
             Domain.Exceptions.ValidationException validationEx =>
                 (HttpStatusCode.UnprocessableEntity, FormatValidationError(validationEx)),
 
+            // UnauthorizedException → 401 (credenciales inválidas)
+            UnauthorizedException unauthorizedEx =>
+                (HttpStatusCode.Unauthorized, unauthorizedEx.Message),
+
             // NotFoundException → 404
             NotFoundException notFoundEx =>
                 (HttpStatusCode.NotFound, notFoundEx.Message),
