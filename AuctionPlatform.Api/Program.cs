@@ -1,7 +1,12 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using AuctionPlatform.Api.Middleware;
+using AuctionPlatform.Application.Services;
+using AuctionPlatform.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +35,51 @@ builder.Services.AddSwaggerGen(options =>
         Description = "API REST para la plataforma de subastas en tiempo real."
     });
 });
+
+// --- Caché distribuido en memoria (en desarrollo; en producción se reemplaza por Redis) ---
+builder.Services.AddDistributedMemoryCache();
+
+// --- Configuración de autenticación JWT ---
+// JWT Bearer es el esquema de autenticación estándar para APIs REST stateless.
+// Cada request incluye un token en el header Authorization que se valida automáticamente.
+var jwtSecret = builder.Configuration["Jwt:Secret"]
+    ?? throw new InvalidOperationException("Jwt:Secret no está configurado en appsettings.json");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "AuctionPlatform";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "AuctionPlatform";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        // Validar la firma del token con la clave secreta
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+
+        // Validar emisor y audiencia para prevenir uso de tokens de otros sistemas
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
+
+        // Validar que el token no haya expirado
+        ValidateLifetime = true,
+
+        // Sin tolerancia de reloj para expiración estricta
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+// --- Configuración de autorización ---
+builder.Services.AddAuthorization();
+
+// --- Registro del servicio JWT (scoped para inyección en servicios de autenticación) ---
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 
 // --- Configuración de Rate Limiting (100 req/min por usuario JWT o IP) ---
 builder.Services.AddRateLimiter(options =>
@@ -90,6 +140,14 @@ if (app.Environment.IsDevelopment())
 
 // --- Rate limiting ---
 app.UseRateLimiter();
+
+// --- Autenticación y autorización JWT ---
+app.UseAuthentication();
+app.UseAuthorization();
+
+// --- Middleware de lista negra: rechaza con 403 a usuarios bloqueados ---
+// Se ejecuta DESPUÉS de la autenticación para tener acceso a los claims del usuario
+app.UseMiddleware<TokenBlacklistMiddleware>();
 
 // --- Mapear controladores bajo el prefijo /api/v1 ---
 app.MapControllers().RequireRateLimiting("PerUser");

@@ -46,7 +46,7 @@ Plan de implementación incremental para la Plataforma de Subastas. Se construye
     - **Validates: Requirements 8.3, 8.6**
 
 - [ ] 2. Autenticación, usuarios y seguridad
-  - [ ] 2.1 Implementar servicio JWT y validación de tokens
+  - [x] 2.1 Implementar servicio JWT y validación de tokens
     - Crear `JwtTokenService` que genera tokens con claims `id` y `rol`, expiración 24h
     - Configurar `AddAuthentication().AddJwtBearer(...)` en Program.cs
     - Implementar middleware de lista negra JWT usando `IDistributedCache` (clave `blacklist:{userId}`, TTL 24h)
